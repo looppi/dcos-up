@@ -13,10 +13,6 @@ variable "availability_zone" {
   default = "a"
 }
 
-variable "spot_price" {
-  default = "0.05"
-}
-
 variable "ami_ids" {
   type = "map"
   default {
@@ -36,10 +32,10 @@ variable "ami_ids" {
 variable "instance_types" {
   type = "map"
   default = {
-    bootstrap    = "m3.large"
-    master       = "m3.large"
-    slave        = "m3.xlarge"
-    slave_public = "m3.large"
+    bootstrap    = "t2.medium"
+    master       = "t2.medium"
+    slave        = "t2.medium"
+    slave_public = "t2.medium"
   }  
 }
 
@@ -254,9 +250,7 @@ resource "aws_security_group" "dcos_master_insecure" {
 
 # INSTANCES:
 
-resource "aws_spot_instance_request" "dcos_bootstrap" {
-  spot_price = "${var.spot_price}"
-  wait_for_fulfillment = true
+resource "aws_instance" "dcos_bootstrap" {
   associate_public_ip_address = true
   ami = "${lookup(var.ami_ids,var.region)}"
   instance_type = "${lookup(var.instance_types,"bootstrap")}"
@@ -310,9 +304,7 @@ resource "aws_spot_instance_request" "dcos_bootstrap" {
   }
 }
 
-resource "aws_spot_instance_request" "dcos_master_node" {
-  spot_price = "${var.spot_price}"
-  wait_for_fulfillment = true
+resource "aws_instance" "dcos_master_node" {
   associate_public_ip_address = true
   count = "${lookup(var.instance_counts,"master")}"
   ami = "${lookup(var.ami_ids,var.region)}"
@@ -338,7 +330,7 @@ resource "aws_spot_instance_request" "dcos_master_node" {
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
-      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_spot_instance_request.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
+      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
       "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${lookup(var.provisioner,"directory")}/vars",
       "echo export DATACENTER=${var.infra_name} >> ${lookup(var.provisioner,"directory")}/vars",
       "echo export NODE_NAME=dcos_master_node-${count.index} >> ${lookup(var.provisioner,"directory")}/vars",
@@ -363,9 +355,7 @@ resource "aws_spot_instance_request" "dcos_master_node" {
   }
 }
 
-resource "aws_spot_instance_request" "dcos_slave_node" {
-  spot_price = "${var.spot_price}"
-  wait_for_fulfillment = true
+resource "aws_instance" "dcos_slave_node" {
   associate_public_ip_address = true
   count = "${lookup(var.instance_counts,"slave")}"
   ami = "${lookup(var.ami_ids,var.region)}"
@@ -391,7 +381,7 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
-      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_spot_instance_request.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
+      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
       "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${lookup(var.provisioner,"directory")}/vars",
       "echo export DATACENTER=${var.infra_name} >> ${lookup(var.provisioner,"directory")}/vars",
       "echo export NODE_NAME=dcos_slave_node-${count.index} >> ${lookup(var.provisioner,"directory")}/vars",
@@ -416,9 +406,7 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
   }
 }
 
-resource "aws_spot_instance_request" "dcos_slave_public_node" {
-  spot_price = "${var.spot_price}"
-  wait_for_fulfillment = true
+resource "aws_instance" "dcos_slave_public_node" {
   associate_public_ip_address = true
   count = "${lookup(var.instance_counts,"slave_public")}"
   ami = "${lookup(var.ami_ids,var.region)}"
@@ -444,7 +432,7 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
   provisioner "remote-exec" {
     inline = [
       "mkdir -p ${lookup(var.provisioner,"directory")}",
-      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_spot_instance_request.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
+      "echo export BOOTSTRAP_NODE_ADDRESS=${aws_instance.dcos_bootstrap.private_dns} > ${lookup(var.provisioner,"directory")}/vars",
       "echo export BOOTSTRAP_PORT=${var.bootstrap_port} >> ${lookup(var.provisioner,"directory")}/vars",
       "echo export DATACENTER=${var.infra_name} >> ${lookup(var.provisioner,"directory")}/vars",
       "echo export NODE_NAME=dcos_slave_public_node-${count.index} >> ${lookup(var.provisioner,"directory")}/vars",
@@ -470,33 +458,33 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
 }
 
 output "bootstrap_ip" {
-  value = "${aws_spot_instance_request.dcos_bootstrap.public_ip}"
+  value = "${aws_instance.dcos_bootstrap.public_ip}"
 }
 
 output "exhibitor_address" {
-  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}:8181/exhibitor/v1/ui/index.html"
+  value = "http://${aws_instance.dcos_master_node.0.public_ip}:8181/exhibitor/v1/ui/index.html"
 }
 
 output "dcos_ui_address" {
-  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}"
+  value = "http://${aws_instance.dcos_master_node.0.public_ip}"
 }
 
 output "dcos_marathon_address" {
-  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}:8080"
+  value = "http://${aws_instance.dcos_master_node.0.public_ip}:8080"
 }
 
 output "dcos_mesos_address" {
-  value = "http://${aws_spot_instance_request.dcos_master_node.0.public_ip}/mesos"
+  value = "http://${aws_instance.dcos_master_node.0.public_ip}/mesos"
 }
 
 output "slave ip addresses" {
-  value = "${join(",", aws_spot_instance_request.dcos_slave_node.*.public_ip)}"
+  value = "${join(",", aws_instance.dcos_slave_node.*.public_ip)}"
 }
 
 output "slave_public ip addresses" {
-  value = "${join(",", aws_spot_instance_request.dcos_slave_public_node.*.public_ip)}"
+  value = "${join(",", aws_instance.dcos_slave_public_node.*.public_ip)}"
 }
 
 output "master ip addresses" {
-  value = "${join(",", aws_spot_instance_request.dcos_master_node.*.public_ip)}"
+  value = "${join(",", aws_instance.dcos_master_node.*.public_ip)}"
 }
