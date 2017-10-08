@@ -71,6 +71,11 @@ variable "provisioner" {
   }
 }
 
+resource "aws_key_pair" "dcos-centos" {
+  key_name   = "${var.provisioner["key_name"]}"
+  public_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pub")}"
+}
+
 variable "bootstrap_port" {
   type = "string"
   default = "10000"
@@ -252,7 +257,7 @@ resource "aws_spot_instance_request" "dcos_bootstrap" {
   ami = "${lookup(var.ami_ids,var.region)}"
   instance_type = "${lookup(var.instance_types,"bootstrap")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${lookup(var.provisioner,"key_name")}"
+  key_name = "${aws_key_pair.dcos-centos.id}"
   root_block_device {
     volume_type = "gp2"
     volume_size = "${lookup(var.root_block_sizes,"bootstrap")}"
@@ -267,7 +272,7 @@ resource "aws_spot_instance_request" "dcos_bootstrap" {
   connection {
     type = "ssh"
     user = "${lookup(var.provisioner,"username")}"
-    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}.pem")}"
+    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}")}"
     agent = false
   }
   provisioner "remote-exec" {
@@ -309,7 +314,7 @@ resource "aws_spot_instance_request" "dcos_master_node" {
   ami = "${lookup(var.ami_ids,var.region)}"
   instance_type = "${lookup(var.instance_types,"master")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${lookup(var.provisioner,"key_name")}"
+  key_name = "${aws_key_pair.dcos-centos.id}"
   root_block_device {
     volume_type = "gp2"  
     volume_size = "${lookup(var.root_block_sizes,"master")}"
@@ -324,7 +329,7 @@ resource "aws_spot_instance_request" "dcos_master_node" {
                              "${aws_security_group.dcos_master_insecure.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
+    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}")}"
   }
   provisioner "remote-exec" {
     inline = [
@@ -362,7 +367,7 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
   ami = "${lookup(var.ami_ids,var.region)}"
   instance_type = "${lookup(var.instance_types,"slave")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${lookup(var.provisioner,"key_name")}"
+  key_name = "${aws_key_pair.dcos-centos.id}"
   root_block_device {
     volume_type = "gp2"  
     volume_size = "${lookup(var.root_block_sizes,"slave")}"
@@ -377,7 +382,7 @@ resource "aws_spot_instance_request" "dcos_slave_node" {
                              "${aws_security_group.dcos_slave.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
+    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}")}"
   }
   provisioner "remote-exec" {
     inline = [
@@ -415,7 +420,7 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
   ami = "${lookup(var.ami_ids,var.region)}"
   instance_type = "${lookup(var.instance_types,"slave_public")}"
   availability_zone = "${var.region}${var.availability_zone}"
-  key_name = "${lookup(var.provisioner,"key_name")}"
+  key_name = "${aws_key_pair.dcos-centos.id}"
   root_block_device {
     volume_type = "gp2" 
     volume_size = "${lookup(var.root_block_sizes,"slave_public")}"
@@ -430,7 +435,7 @@ resource "aws_spot_instance_request" "dcos_slave_public_node" {
                              "${aws_security_group.dcos_slave_public.id}" ]
   connection {
     user = "${lookup(var.provisioner,"username")}"
-    key_file = "${path.module}/keys/${lookup(var.provisioner,"key_name")}.pem"
+    private_key = "${file("keys/${lookup(var.provisioner,"key_name")}")}"
   }
   provisioner "remote-exec" {
     inline = [
