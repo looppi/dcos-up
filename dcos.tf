@@ -5,7 +5,7 @@ variable "infra_name" {
 
 variable "region" {
   type = "string"
-  default = "us-east-1"
+  default = "eu-west-1"
 }
 
 variable "availability_zone" {
@@ -69,6 +69,10 @@ variable "provisioner" {
     key_name = "dcos-centos"
     directory = "/home/centos/provision"
   }
+}
+
+provider "aws" {
+  region = "${var.region}"
 }
 
 resource "aws_key_pair" "dcos-centos" {
